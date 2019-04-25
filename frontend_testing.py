@@ -1,11 +1,11 @@
 import unittest
+import time
+from typing import Set, List
 from selenium import webdriver
 from selenium.webdriver.firefox.webdriver import WebDriver
-from selenium.webdriver.common.alert import Alert
-from selenium.webdriver.common.keys import Keys
 import psutil
 
-GECKO_DRIVER  = 'geckodriver'
+GECKO_DRIVER = 'geckodriver'
 
 MP_ROOT_URL = 'http://34.229.238.197/'
 
@@ -74,21 +74,73 @@ def logout(test_case: TestFrontend, web_driver: WebDriver):
     logout_button.click()
     test_case.assertIn(web_driver.current_url, MP_ROOT_URL)
 
+def create_delete_test(test_name: str, web_driver: WebDriver, test_case: TestFrontend):
+    create_test_link = \
+        web_driver.find_element_by_class_name('card-header').find_element_by_tag_name('a')
+    create_test_link.click()
+    test_case.assertEqual(web_driver.current_url, MANAGER_PAGE_URLS[1] + '/create')
+    name_input = web_driver.find_element_by_id('name')
+    name_input.send_keys(test_name)
+    create_button = web_driver.find_element_by_class_name('btn-success')
+    create_button.click()
+    table_values = get_table_values(web_driver)
+    test_case.assertIn(test_name, table_values)
+    last_delete_button = web_driver.find_elements_by_class_name('btn-danger')[-1]
+    last_delete_button.click()
+    test_case.assertNotIn(test_name, get_table_values(web_driver))
+
+def edit_test(web_driver: WebDriver, test_case: TestFrontend):
+    def get_edit_button():
+        return web_driver.find_element_by_class_name('btn-primary')
+
+    def get_name_input():
+        return web_driver.find_element_by_id('name')
+
+    def get_update_btn():
+        return web_driver.find_element_by_class_name('btn-success')
+    edit_button = get_edit_button()
+    old_name = web_driver.find_element_by_tag_name('td').text
+    edit_button.click()
+    test_case.assertIn('edit', web_driver.current_url)
+    name_input = get_name_input()
+    name_input.clear()
+    new_name = f'{old_name} #{int(time.time())}'
+    name_input.send_keys(new_name)
+    update_button = get_update_btn()
+    update_button.click()
+    test_case.assertTrue(check_table_fields([new_name], web_driver))
+    edit_button = get_edit_button()
+    edit_button.click()
+    name_input = get_name_input()
+    name_input.clear()
+    name_input.send_keys(old_name)
+    update_button = get_update_btn()
+    update_button.click()
+    test_case.assertFalse(check_table_fields([new_name], web_driver))
+    test_case.assertTrue(check_table_fields([old_name], web_driver))
+
+def get_table_values(web_driver: WebDriver):
+    return set(map(lambda e: e.text, web_driver.find_elements_by_tag_name('td')))
+
+def check_table_fields(preview_fields: List[str], web_driver: WebDriver) -> bool:
+    check_fields = get_table_values(web_driver)
+    result = True
+    for field in preview_fields:
+        result &= field in check_fields
+    return result
 
 def test_page_actions(page_url: str, test_case: TestFrontend, web_driver: WebDriver):
     if page_url == MANAGER_PAGE_URLS[0]:
         view_button = web_driver.find_element_by_class_name('btn-success')
         preview_fields = \
-            list(filter(lambda e: e != 'View',
+            list(filter(lambda f: f != 'View',
                         map(lambda e: e.text, web_driver.find_elements_by_tag_name('td'))))
         view_button.click()
-        student_fields = set(map(lambda e: e.text, web_driver.find_elements_by_tag_name('td')))
-        for field in preview_fields:
-            test_case.assertIn(field, student_fields)
+        test_case.assertTrue(check_table_fields(preview_fields, web_driver))
     elif page_url == MANAGER_PAGE_URLS[1]:
-        # TODO
-        pass
-
+        # TODO add answer editing test
+        create_delete_test(f'My Cool Test #{int(time.time())}', web_driver, test_case)
+        edit_test(web_driver, test_case)
     elif page_url == MANAGER_PAGE_URLS[2]:
         # TODO
         pass
