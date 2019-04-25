@@ -1,6 +1,6 @@
 import unittest
 import time
-from typing import Set, List
+from typing import List
 from selenium import webdriver
 from selenium.webdriver.firefox.webdriver import WebDriver
 import psutil
@@ -37,7 +37,7 @@ class TestFrontend(unittest.TestCase):
             self.assertIn(url, urls)
             web_driver.get(url)
             self.assertEqual(url, web_driver.current_url)
-            test_page_actions(url, self, web_driver)
+            _test_page_actions(url, self, web_driver)
 
         logout(self, web_driver)
 
@@ -74,7 +74,7 @@ def logout(test_case: TestFrontend, web_driver: WebDriver):
     logout_button.click()
     test_case.assertIn(web_driver.current_url, MP_ROOT_URL)
 
-def create_delete_test(test_name: str, web_driver: WebDriver, test_case: TestFrontend):
+def _create_delete_test(test_name: str, web_driver: WebDriver, test_case: TestFrontend):
     create_test_link = \
         web_driver.find_element_by_class_name('card-header').find_element_by_tag_name('a')
     create_test_link.click()
@@ -83,13 +83,13 @@ def create_delete_test(test_name: str, web_driver: WebDriver, test_case: TestFro
     name_input.send_keys(test_name)
     create_button = web_driver.find_element_by_class_name('btn-success')
     create_button.click()
-    table_values = get_table_values(web_driver)
+    table_values = _get_table_values(web_driver)
     test_case.assertIn(test_name, table_values)
     last_delete_button = web_driver.find_elements_by_class_name('btn-danger')[-1]
     last_delete_button.click()
-    test_case.assertNotIn(test_name, get_table_values(web_driver))
+    test_case.assertNotIn(test_name, _get_table_values(web_driver))
 
-def edit_test(web_driver: WebDriver, test_case: TestFrontend):
+def _edit_test(web_driver: WebDriver, test_case: TestFrontend):
     def get_edit_button():
         return web_driver.find_element_by_class_name('btn-primary')
 
@@ -108,7 +108,7 @@ def edit_test(web_driver: WebDriver, test_case: TestFrontend):
     name_input.send_keys(new_name)
     update_button = get_update_btn()
     update_button.click()
-    test_case.assertTrue(check_table_fields([new_name], web_driver))
+    test_case.assertTrue(_check_table_fields([new_name], web_driver))
     edit_button = get_edit_button()
     edit_button.click()
     name_input = get_name_input()
@@ -116,31 +116,50 @@ def edit_test(web_driver: WebDriver, test_case: TestFrontend):
     name_input.send_keys(old_name)
     update_button = get_update_btn()
     update_button.click()
-    test_case.assertFalse(check_table_fields([new_name], web_driver))
-    test_case.assertTrue(check_table_fields([old_name], web_driver))
+    test_case.assertFalse(_check_table_fields([new_name], web_driver))
+    test_case.assertTrue(_check_table_fields([old_name], web_driver))
 
-def get_table_values(web_driver: WebDriver):
+def _get_table_values(web_driver: WebDriver):
     return set(map(lambda e: e.text, web_driver.find_elements_by_tag_name('td')))
 
-def check_table_fields(preview_fields: List[str], web_driver: WebDriver) -> bool:
-    check_fields = get_table_values(web_driver)
+def _check_table_fields(preview_fields: List[str], web_driver: WebDriver) -> bool:
+    check_fields = _get_table_values(web_driver)
     result = True
     for field in preview_fields:
         result &= field in check_fields
     return result
 
-def test_page_actions(page_url: str, test_case: TestFrontend, web_driver: WebDriver):
+def _get_int_time() -> int:
+    return int(time.time())
+
+def _create_delete_answer(web_driver: WebDriver, test_case: TestFrontend):
+    view_button = web_driver.find_element_by_class_name('btn-success')
+    view_button.click()
+    create_link = web_driver.find_element_by_class_name('card-header').find_element_by_tag_name('a')
+    create_link.click()
+    question_input = web_driver.find_elements_by_id('question')
+    question_name = f'My Cool Question #{_get_int_time()}'
+    question_input.send_keys(question_name)
+    create_button = web_driver.find_element_by_class_name('btn-success')
+    create_button.click()
+    test_case.assertTrue(_check_table_fields([question_name], web_driver))
+    delete_button = web_driver.find_elements_by_class_name('btn-danger')[-1]
+    delete_button.click()
+    test_case.assertFalse(_check_table_fields([question_name], web_driver))
+
+def _test_page_actions(page_url: str, test_case: TestFrontend, web_driver: WebDriver):
     if page_url == MANAGER_PAGE_URLS[0]:
         view_button = web_driver.find_element_by_class_name('btn-success')
         preview_fields = \
             list(filter(lambda f: f != 'View',
                         map(lambda e: e.text, web_driver.find_elements_by_tag_name('td'))))
         view_button.click()
-        test_case.assertTrue(check_table_fields(preview_fields, web_driver))
+        test_case.assertTrue(_check_table_fields(preview_fields, web_driver))
     elif page_url == MANAGER_PAGE_URLS[1]:
-        # TODO add answer editing test
-        create_delete_test(f'My Cool Test #{int(time.time())}', web_driver, test_case)
-        edit_test(web_driver, test_case)
+        # TODO add answer & question editing test
+        _create_delete_test(f'My Cool Test #{int(time.time())}', web_driver, test_case)
+        _edit_test(web_driver, test_case)
+        _create_delete_answer(web_driver, test_case)
     elif page_url == MANAGER_PAGE_URLS[2]:
         # TODO
         pass
